@@ -1,66 +1,57 @@
 <script setup>
 import { app, db } from './db';
-import { collection, addDoc } from "firebase/firestore";
-import { onMounted,reactive, ref } from 'vue';
+import { collection, addDoc, getFirestore, getDocs } from "firebase/firestore";
+import { onMounted, reactive, ref } from 'vue';
 
 const inputUsername = ref('');
 const inputMessage = ref('');
-
 console.log(inputMessage)
+
 const state = reactive({
   username: "",
   messages: []
 });
 
-
-//    const username= state.username
-//    const content= inputMessage.value.trim()
-
- const login = () => {
+const login = () => {
   if (inputUsername.value.trim() !== '') {
     state.username = inputUsername.value.trim();
     inputUsername.value = '';
-    // Call writeUserData and pass the username and inputMessage values
-    // writeUserData(state.username, inputMessage.value.trim());
   }
 };
 
-
 async function writeUserData(username=state.username,content=inputMessage.value.trim()) {
 	console.log("Username:", username);
-  console.log("Content:", content);
+    console.log("Content:", content);
 
 	try {
-    const docRef = await addDoc(collection(db, "users"), {
-      username: state.username,
-	  content: inputMessage.value.trim()
-    });
-    console.log("Document written with ID: ", docRef.id);
+      const docRef = await addDoc(collection(db, "users"), {
+		username: state.username,
+		content: inputMessage.value.trim()
+       });
+	   inputMessage.value = '';
+       console.log("Document written with ID: ", docRef.id);
   } catch (e) {
     console.error("Error adding document: ", e);
   }
 }
 
-// const sendMessage = () => {
-//   const messagesRef = db.ref('messages'); // Use db.ref() to get a reference
-  
-//   if (inputMessage.value.trim() === '') {
-//     return;
-//   }
-  
+async function fetchData() {
+  try {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    const messages = [];
+    querySnapshot.forEach((doc) => {
+		messages.push({ id: doc.id, ...doc.data() });
+    });
+	 console.log(messages)
+    state.messages = messages;
+  } catch (e) {
+    console.error("Error fetching data: ", e);
+  }
+}
 
-  
-//   messagesRef.push(message)
-//     .then(() => {
-//       // Data successfully written to database
-//       console.log('Message sent:', message);
-//       inputMessage.value = ''; // Clear input field
-//     })
-//     .catch((error) => {
-//       // Handle errors
-//       console.error('Error sending message:', error);
-//     });
-// };
+onMounted(() => {
+  fetchData();
+});
 
 </script>
 
@@ -68,13 +59,13 @@ async function writeUserData(username=state.username,content=inputMessage.value.
 <template>
   <div class="view login" v-if="state.username === '' || state.username === null">
     <form class="login-form" @submit.prevent="login">
-    <div class="form-inner">
-      <h1>Login to fleetchat</h1>
-    <label for="username">username</label>
-    <input type="text" v-model="inputUsername" placeholder="Please enter your username">
-    <input type="submit" value="Login">
-    </div>
-  </form>
+		<div class="form-inner">
+			<h1>Login to fleetchat</h1>
+			<label for="username">username</label>
+			<input type="text" v-model="inputUsername" placeholder="Please enter your username">
+			<input type="submit" value="Login">
+		</div>
+    </form>
   </div>
   
   <div class="view chat" v-else>
@@ -82,9 +73,18 @@ async function writeUserData(username=state.username,content=inputMessage.value.
       <button class="logout">Logout</button>
       <h1>welcome, {{ state.username }}</h1>
     </header>
+
     <section class="chat-box">
-      <!-- messages -->
+		<div v-for="message in state.messages" 
+			:key="message.id" 
+			:class="(message.username == state.username ? 'message current-user':'message')">
+				<div class="message-inner">
+					<div class="username">{{ message.username }}</div>
+					<div class="content">{{ message.content }}</div>
+				</div>
+        </div>
     </section>
+
     <footer>
       <form @submit.prevent="writeUserData">
         <input type="text" v-model="inputMessage" placeholder="write your messsage...">
