@@ -9,7 +9,8 @@ console.log(inputMessage)
 
 const state = reactive({
   username: "",
-  messages: []
+  messages: [],
+  loading: true
 });
 
 const login = () => {
@@ -20,16 +21,19 @@ const login = () => {
 };
 
 async function writeUserData(username=state.username,content=inputMessage.value.trim()) {
-	console.log("Username:", username);
-    console.log("Content:", content);
+  console.log("Username:", username);
+  console.log("Content:", content);
 
-	try {
-      const docRef = await addDoc(collection(db, "users"), {
-		username: state.username,
-		content: inputMessage.value.trim()
-       });
-	   inputMessage.value = '';
-       console.log("Document written with ID: ", docRef.id);
+  try {
+    const docRef = await addDoc(collection(db, "users"), {
+      username: state.username,
+      content: inputMessage.value.trim()
+    });
+    inputMessage.value = '';
+    console.log("Document written with ID: ", docRef.id);
+    
+    // Update state immediately after adding the message
+    state.messages.push({ id: docRef.id, username: state.username, content });
   } catch (e) {
     console.error("Error adding document: ", e);
   }
@@ -40,12 +44,14 @@ async function fetchData() {
     const querySnapshot = await getDocs(collection(db, "users"));
     const messages = [];
     querySnapshot.forEach((doc) => {
-		messages.push({ id: doc.id, ...doc.data() });
+      messages.push({ id: doc.id, ...doc.data() });
     });
-	 console.log(messages)
+    console.log(messages)
     state.messages = messages;
   } catch (e) {
     console.error("Error fetching data: ", e);
+  } finally {
+    state.loading = false;
   }
 }
 
@@ -53,46 +59,56 @@ onMounted(() => {
   fetchData();
 });
 
-</script>
+const logout = () => {
+    state.username = '';
+}
 
+</script>
 
 <template>
   <div class="view login" v-if="state.username === '' || state.username === null">
     <form class="login-form" @submit.prevent="login">
-		<div class="form-inner">
-			<h1>Login to fleetchat</h1>
-			<label for="username">username</label>
-			<input type="text" v-model="inputUsername" placeholder="Please enter your username">
-			<input type="submit" value="Login">
-		</div>
+      <div class="form-inner">
+        <h1>Login to fleetchat</h1>
+        <label for="username">username</label>
+        <input type="text" v-model="inputUsername" placeholder="Please enter your username">
+        <input type="submit" value="Login">
+      </div>
     </form>
   </div>
   
   <div class="view chat" v-else>
     <header>
-      <button class="logout">Logout</button>
+      <button class="logout" type="submit" @click="logout()">Logout</button>
       <h1>welcome, {{ state.username }}</h1>
     </header>
 
     <section class="chat-box">
-		<div v-for="message in state.messages" 
-			:key="message.id" 
-			:class="(message.username == state.username ? 'message current-user':'message')">
-				<div class="message-inner">
-					<div class="username">{{ message.username }}</div>
-					<div class="content">{{ message.content }}</div>
-				</div>
+      <div v-for="message in state.messages" :key="message.id" :class="(message.username == state.username ? 'message current-user':'message')">
+        <div class="message-inner">
+          <div class="username">{{ message.username }}</div>
+          <div class="content">{{ message.content }}</div>
         </div>
+      </div>
     </section>
 
     <footer>
       <form @submit.prevent="writeUserData">
         <input type="text" v-model="inputMessage" placeholder="write your messsage...">
-        <input type="submit"  value="send">
+        <input type="submit" value="send">
       </form>
     </footer>
   </div>
 </template>
+
+
+<style>
+.loading {
+  text-align: center;
+  margin-top: 20px;
+}
+</style>
+
 
 <style scoped>
 * {
